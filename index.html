@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-WmNUJS+36x5U1pe8fdlV61SKGrCm3k1WQ4yfyL+mjOM='; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overdue invoices demo | Casim Bahadar</title>
+<meta name="description" content="Load an invoice list and see what is overdue, grouped by how late it is, with one reminder per customer that gets firmer as the bill gets older. Runs in your browser.">
+<meta name="theme-color" content="#F7F5FB">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect x=%275%27 y=%271%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%23A993E4%27/%3E%3Crect x=%271%27 y=%275%27 width=%2710%27 height=%2710%27 rx=%272%27 fill=%27%235A3DB8%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..900&display=swap">
+<style>
+
+
+/* Tokens. Spacing sits on a 4px scale, radii on three sizes. */
+:root {
+  --paper: #F7F5FB; --mist: #EDE8F7; --lav: #D8CCF3; --violet: #5A3DB8; --violet-deep: #432C93;
+  --ink: #221B35; --slate: #5F5873; --line: #DDD5EE; --error: #A32A3C; --error-bg: #FBEAEE; --changed-bg: #FFF6DB;
+  --s1: 0.25rem; --s2: 0.5rem; --s3: 0.75rem; --s4: 1rem; --s6: 1.5rem; --s8: 2rem; --s12: 3rem; --s16: 4rem;
+  --r-sm: 4px; --r-md: 12px; --r-pill: 999px;
+  --gutter: var(--s4);
+  --font: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (min-width: 40rem) { :root { --gutter: var(--s8); } }
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font);
+  font-size: 1rem; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+@media (min-width: 40rem) { body { font-size: 1.0625rem; } }
+h1, h2, h3, h4 { margin: 0 0 var(--s3); line-height: 1.15; letter-spacing: -0.02em; text-wrap: balance; }
+h1 { font-size: clamp(2rem, 1.4rem + 3vw, 3.2rem); font-weight: 850; letter-spacing: -0.035em; margin-bottom: var(--s4); }
+h2 { font-size: clamp(1.4rem, 1.1rem + 1.2vw, 1.9rem); font-weight: 800; margin: 0; }
+h3 { font-size: 1.2rem; font-weight: 750; margin-top: var(--s12); }
+h4 { font-size: 1.05rem; font-weight: 750; margin-bottom: var(--s1); }
+p { margin: 0 0 var(--s4); max-width: 64ch; }
+a { color: var(--violet); text-decoration-thickness: 1.5px; text-underline-offset: 0.2em; }
+@media (hover: hover) { a:hover { color: var(--violet-deep); } }
+:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; border-radius: var(--r-sm); }
+.wrap { max-width: 62rem; margin-inline: auto; padding-inline: var(--gutter); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+.topbar { border-bottom: 1px solid var(--line); }
+.topbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; padding-block: var(--s4); }
+.wordmark { display: inline-flex; align-items: center; gap: var(--s3); min-height: 2.75rem; color: var(--ink); font-weight: 800; letter-spacing: -0.02em; text-decoration: none; }
+.mark { width: 1rem; height: 1rem; border-radius: var(--r-sm); background: var(--violet); box-shadow: 4px -4px 0 -1px #A993E4; margin-top: var(--s1); }
+.demo-flag { font-size: 0.9375rem; font-weight: 650; color: var(--slate); }
+
+.intro { padding-block: var(--s8) var(--s6); }
+.lede { font-size: 1.125rem; }
+.privacy { max-width: 44rem; margin: 0; padding: var(--s4); background: var(--mist); border-radius: var(--r-md); }
+.privacy p { margin: 0; }
+.privacy strong { font-weight: 750; }
+
+.step { padding-block: var(--s8); border-top: 1px solid var(--line); }
+.step-head { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s4); }
+.step-num { flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--r-pill); background: var(--ink); color: var(--paper); font-weight: 800; font-size: 1rem; }
+.muted { color: var(--slate); }
+.small { font-size: 0.9375rem; }
+
+/* One button system. Groups decide width: full width stacked on phones, equal widths in a row. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 3rem; padding: var(--s3) var(--s6);
+  border: 2px solid transparent; border-radius: var(--r-pill);
+  font: inherit; font-size: 1rem; font-weight: 650; line-height: 1.2; text-decoration: none; cursor: pointer;
+}
+.btn-primary { background: var(--violet); color: #fff; }
+.btn-quiet { border-color: var(--ink); color: var(--ink); background: transparent; }
+@media (hover: hover) {
+  .btn-primary:hover { background: var(--violet-deep); color: #fff; }
+  .btn-quiet:hover { background: var(--ink); color: var(--paper); }
+}
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.actions { display: flex; flex-direction: column; gap: var(--s3); margin-block: var(--s4); }
+.actions > .btn { width: 100%; }
+@media (min-width: 40rem) {
+  .actions { flex-direction: row; flex-wrap: wrap; }
+  .actions > .btn { flex: 1 1 0; width: auto; max-width: 16rem; }
+}
+
+details { margin-top: var(--s4); }
+summary { cursor: pointer; font-weight: 650; color: var(--violet); min-height: 2.75rem; display: flex; align-items: center; }
+textarea { width: 100%; min-height: 10rem; font: 1rem/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace; padding: var(--s3); border: 1.5px solid var(--slate); border-radius: var(--r-md); background: #fff; color: var(--ink); }
+label.block { display: block; font-weight: 650; margin-bottom: var(--s2); }
+select { font: inherit; font-size: 1rem; min-height: 2.75rem; padding: var(--s1) var(--s2); border: 1.5px solid var(--slate); border-radius: var(--r-md); background: #fff; color: var(--ink); max-width: 100%; }
+input[type="checkbox"], input[type="radio"] { width: 1.25rem; height: 1.25rem; accent-color: var(--violet); margin: 0; flex: none; }
+
+.status { font-weight: 650; margin: var(--s3) 0 0; }
+.alert { margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--error-bg); color: var(--error); font-weight: 650; border: 1.5px solid var(--error); }
+.info { margin-top: var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--mist); }
+.alert:empty, .info:empty { display: none; }
+.stale { margin: 0 0 var(--s6); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--changed-bg); border: 1.5px solid #8A6A12; font-weight: 650; }
+
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: var(--r-md); background: #fff; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--mist); font-weight: 700; white-space: nowrap; }
+tr:last-child td, tr:last-child th { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.check { display: flex; align-items: center; gap: var(--s2); min-height: 2.75rem; cursor: pointer; }
+.map-table td { vertical-align: middle; }
+.ws { display: inline-block; min-width: 0.6em; color: var(--violet); font-weight: 700; }
+.empty-val { color: var(--slate); font-style: italic; }
+
+fieldset { border: 0; padding: 0; margin: var(--s6) 0 0; }
+legend { font-weight: 700; margin-bottom: var(--s2); padding: 0; }
+.radio { display: flex; align-items: center; gap: var(--s3); min-height: 2.75rem; }
+
+.summary-line { font-size: 1.125rem; font-weight: 600; max-width: 60ch; }
+.summary-line b { font-weight: 850; }
+.jump { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin: 0; padding: 0; list-style: none; }
+.jump a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 650; }
+
+.cellmap { margin: 0; }
+.cellmap svg { display: block; max-width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s6); margin: var(--s3) 0 0; padding: 0; list-style: none; font-size: 0.9375rem; }
+.legend li { display: flex; align-items: center; gap: var(--s2); }
+.sw { width: 1rem; height: 1rem; border-radius: var(--r-sm); display: inline-block; }
+.sw-same { background: var(--line); }
+.sw-changed { background: var(--violet); }
+.sw-flag { background: var(--error); background-image: repeating-linear-gradient(45deg, transparent 0 2px, rgba(255,255,255,.55) 2px 4px); }
+figcaption { font-size: 0.9375rem; color: var(--slate); margin-top: var(--s2); }
+
+.charts { display: grid; gap: 0 var(--s12); }
+.charts > div { min-width: 0; }
+@media (min-width: 52rem) { .charts { grid-template-columns: 1fr 1fr; } }
+.bars { display: grid; gap: var(--s3); max-width: 40rem; }
+.bar-row { display: grid; grid-template-columns: 1fr 2.5rem; align-items: center; gap: var(--s1) var(--s3); font-size: 0.9375rem; }
+.bar-row .bar-track { grid-column: 1 / -1; grid-row: 2; }
+.bar-track { display: block; height: 1rem; background: var(--mist); border-radius: var(--r-pill); overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--violet); border-radius: var(--r-pill); }
+.bars.problems .bar-fill { background: var(--error); }
+.bar-row .n { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+
+.pairs { display: grid; gap: var(--s4); }
+.pair { min-width: 0; border: 1.5px solid var(--line); border-radius: var(--r-md); padding: var(--s4); background: #fff; }
+.pair.is-merged { border-color: var(--violet); background: var(--mist); }
+.pair.is-kept { background: var(--paper); }
+.pair .reason { margin: 0 0 var(--s3); color: var(--slate); font-size: 0.9375rem; }
+.pair table { table-layout: fixed; font-size: 0.875rem; }
+.pair th, .pair td { white-space: normal; overflow-wrap: anywhere; padding: var(--s2) var(--s3); }
+.pair thead th:first-child { width: 30%; }
+.pair th { overflow-wrap: normal; }
+.pair td.diff { background: var(--changed-bg); font-weight: 650; }
+.pair .outcome { font-weight: 650; margin: var(--s3) 0 0; }
+.kind { display: inline-block; font-size: 0.875rem; font-weight: 700; padding: 0 var(--s2); border-radius: var(--r-pill); background: var(--lav); margin-left: var(--s2); vertical-align: 0.1em; }
+
+.req-text { font-size: 0.9375rem; }
+@media (min-width: 40.01rem) { .req-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } }
+@media (max-width: 40rem) {
+  .stack thead, .map-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .stack tr { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2) var(--s4); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); }
+  .stack tr:last-child { border-bottom: 0; }
+  .stack td { display: block; padding: 0; border: 0; overflow-wrap: anywhere; }
+  .stack td::before { content: attr(data-label); display: block; font-size: 0.875rem; font-weight: 650; color: var(--slate); }
+  .stack td:nth-child(n+5) { grid-column: 1 / -1; }
+  .stack td:nth-child(1), .stack td:nth-child(2) { font-weight: 750; }
+  .stack td:nth-child(1)::before { content: "Row "; display: inline; font: inherit; color: inherit; }
+  .stack td:nth-child(2)::before { display: none; }
+  .stack td.num { white-space: normal; }
+  .stack-wrap.scroll, .map-wrap.scroll { overflow-x: visible; }
+  .map-table tr { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s1) var(--s4); padding: var(--s3) var(--s4); border-bottom: 1px solid var(--line); }
+  .map-table tr:last-child { border-bottom: 0; }
+  .map-table th { grid-column: 1 / -1; background: none; padding: 0; border: 0; white-space: normal; }
+  .map-table td { padding: 0; border: 0; }
+  .map-table td:last-child { grid-column: 1 / -1; font-size: 0.875rem; color: var(--slate); overflow-wrap: anywhere; }
+  .map-table td:last-child::before { content: "First value: "; }
+  .map-table select { width: 100%; }
+}
+
+.biz { margin-block: var(--s8); }
+.biz-box { max-width: 44rem; padding: var(--s6); background: var(--mist); border-radius: var(--r-md); }
+.biz-box h2 { font-size: 1.35rem; margin-bottom: var(--s2); }
+.biz-box p:last-child { margin-bottom: 0; }
+footer { border-top: 1px solid var(--line); padding-block: var(--s6) var(--s12); font-size: 0.9375rem; color: var(--slate); }
+footer p { margin: 0 0 var(--s2); }
+
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+
+/* Demo 7 additions */
+.scroll { position: relative; }
+.intro-short { padding-bottom: 0; }
+.intro-short + .step { border-top: 0; padding-top: var(--s2); }
+.load-row { display: grid; gap: var(--s3); max-width: 44rem; margin: var(--s4) 0; }
+@media (min-width: 40rem) { .load-row { grid-template-columns: 1fr 1fr; } }
+.load-row .btn, .load-row .file-btn { width: 100%; }
+.file-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.file-btn:focus-within { outline: 3px solid var(--violet); outline-offset: 3px; }
+.field { margin: 0 0 var(--s4); max-width: 22rem; }
+.field > label { display: block; font-weight: 700; margin-bottom: var(--s1); font-size: 0.9375rem; }
+input[type="date"] { width: 100%; font: inherit; font-size: 1rem; min-height: 3rem; padding: var(--s2) var(--s3); border: 1.5px solid var(--slate); border-radius: var(--r-md); background: #fff; color: var(--ink); }
+details.paste { max-width: 44rem; margin: 0 0 var(--s4); }
+details.paste summary { cursor: pointer; font-weight: 700; min-height: 2.75rem; display: flex; align-items: center; }
+details.paste textarea { width: 100%; min-height: 9rem; font: inherit; font-size: 1rem; padding: var(--s3); border: 1.5px solid var(--slate); border-radius: var(--r-md); background: #fff; color: var(--ink); margin: var(--s2) 0; }
+.notices { max-width: 44rem; margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--mist); }
+.notices p { margin: 0 0 var(--s2); } .notices p:last-child { margin: 0; }
+.err-box { max-width: 44rem; margin: 0 0 var(--s4); padding: var(--s4); border: 2px solid var(--error); border-radius: var(--r-md); background: var(--error-bg); color: var(--error); font-weight: 650; }
+.err-box p { margin: 0; }
+.totals-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); max-width: 44rem; margin: 0 0 var(--s6); }
+.big { padding: var(--s4); border-radius: var(--r-md); background: #fff; border: 1.5px solid var(--line); }
+.big span { display: block; font-size: 0.9375rem; font-weight: 650; color: var(--slate); }
+.big strong { display: block; font-size: clamp(1.2rem, 5.4vw, 1.6rem); overflow-wrap: anywhere; font-weight: 850; font-variant-numeric: tabular-nums; }
+.big.is-overdue { border-color: var(--error); }
+.big.is-overdue strong { color: var(--error); }
+.bands { list-style: none; margin: 0 0 var(--s6); padding: 0; display: grid; gap: var(--s3); max-width: 44rem; }
+.bands li { display: grid; grid-template-columns: 1fr auto; gap: var(--s1) var(--s3); align-items: baseline; }
+.bands .name { font-weight: 650; }
+.bands .amt { font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+.bands .count { grid-column: 1 / -1; font-size: 0.875rem; color: var(--slate); margin-top: calc(var(--s1) * -1); }
+.bar { grid-column: 1 / -1; height: 0.75rem; border-radius: var(--r-pill); background: var(--mist); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--violet); }
+.bar.b-not_due i { background: var(--lav); }
+.bar.b-d61_90 i, .bar.b-over90 i { background: var(--error); }
+.checkbox { max-width: 44rem; margin: 0 0 var(--s4); padding: var(--s4); border: 1.5px solid #8A6A12; border-radius: var(--r-md); background: var(--changed-bg); }
+.checkbox h3 { margin: 0 0 var(--s2); font-size: 1.05rem; }
+.checkbox ul { margin: 0; padding-left: var(--s6); }
+.side-note { max-width: 44rem; margin: 0 0 var(--s4); }
+table.age { border-collapse: collapse; min-width: 44rem; font-size: 0.9375rem; }
+table.age th, table.age td { padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.age th:first-child, table.age td:first-child { text-align: left; position: sticky; left: 0; background: #fff; white-space: normal; min-width: 9rem; }
+table.age thead th { font-weight: 750; background: var(--mist); }
+table.age thead th:first-child { background: var(--mist); }
+table.age tfoot td { font-weight: 800; border-top: 2px solid var(--ink); }
+table.age .late { color: var(--error); font-weight: 700; }
+.rem-list { list-style: none; margin: 0 0 var(--s6); padding: 0; display: grid; gap: var(--s4); max-width: 44rem; }
+.rem { padding: var(--s4); border: 1.5px solid var(--line); border-radius: var(--r-md); background: #fff; }
+.rem.is-final { border-color: var(--error); border-width: 2px; }
+.rem h3 { margin: 0 0 var(--s2); font-size: 1.1rem; display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
+.tone { display: inline-block; font-size: 0.875rem; font-weight: 800; padding: 0 var(--s2); border-radius: var(--r-md); }
+.tone-friendly { background: var(--lav); color: var(--ink); }
+.tone-firm { background: #8A6A12; color: #fff; }
+.tone-final { background: var(--error); color: #fff; }
+.rem .meta { margin: 0 0 var(--s2); font-size: 0.9375rem; overflow-wrap: anywhere; }
+.rem .call { color: var(--error); font-weight: 700; }
+.rem .subj { margin: 0 0 var(--s2); font-weight: 700; overflow-wrap: anywhere; }
+.rem textarea { width: 100%; min-height: 10rem; font: inherit; font-size: 1rem; line-height: 1.5; padding: var(--s3); border: 1.5px solid var(--line); border-radius: var(--r-md); background: var(--paper); color: var(--ink); resize: vertical; }
+.rem .actions { margin: var(--s2) 0 0; }
+.rem .sent { font-weight: 700; margin: var(--s2) 0 0; }
+.tone-count { margin: 0 0 var(--s4); }
+.notices select { font: inherit; font-size: 1rem; min-height: 2.75rem; padding: var(--s1) var(--s2); border: 1.5px solid var(--slate); border-radius: var(--r-md); background: #fff; color: var(--ink); max-width: 100%; }
+.file-btn input { font-size: 16px; }
+@media (max-width: 40rem) {
+  .scroll.age-wrap { overflow-x: visible; border: 0; background: none; }
+  table.age { min-width: 0; width: 100%; }
+  table.age, table.age tbody, table.age tfoot, table.age tr, table.age th, table.age td { display: block; }
+  table.age thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table.age tr { padding: var(--s3) var(--s4); margin-bottom: var(--s3); border: 1.5px solid var(--line); border-radius: var(--r-md); background: #fff; }
+  table.age th:first-child, table.age td:first-child { position: static; font-weight: 800; font-size: 1rem; padding: 0 0 var(--s1); border: 0; background: none; }
+  table.age td { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s1) 0; border: 0; text-align: right; white-space: normal; }
+  table.age td:empty { display: none; }
+  table.age td[data-label]::before { content: attr(data-label); color: var(--slate); font-weight: 600; text-align: left; }
+  table.age td.tot { border-top: 1px solid var(--line); margin-top: var(--s1); padding-top: var(--s2); font-weight: 800; }
+  table.age tfoot tr { border: 2px solid var(--ink); }
+  table.age tfoot td { border-top: 0; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <a class="wordmark" href="https://casimbahadar.github.io/"><span class="mark" aria-hidden="true"></span>Casim Bahadar</a>
+    <span class="demo-flag">Demo with made-up data</span>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap intro intro-short">
+    <h1>See who owes you, and how late</h1>
+    <p class="lede">Load an invoice list and get the overdue amounts grouped by how late they are, plus a reminder for each customer that gets firmer as the bill gets older.</p>
+  </div>
+
+  <section class="wrap step" id="step-load" aria-labelledby="h-load">
+    <div class="step-head"><span class="step-num" aria-hidden="true">1</span><h2 id="h-load" tabindex="-1">Load invoices</h2></div>
+    <div class="load-row">
+      <button class="btn btn-primary" id="btn-sample" type="button">Load the sample invoices</button>
+      <label class="btn btn-quiet file-btn">Choose a CSV file<input type="file" id="file" accept=".csv,text/csv,text/plain"></label>
+    </div>
+    <details class="paste">
+      <summary>Paste a spreadsheet instead</summary>
+      <label class="sr-only" for="paste-text">Spreadsheet text to read</label>
+      <textarea id="paste-text" spellcheck="false" placeholder="Invoice number,Customer,Email,Invoice date,Due date,Amount,Paid"></textarea>
+      <button class="btn btn-quiet" id="btn-paste" type="button">Read the pasted invoices</button>
+    </details>
+    <div class="field"><label for="as-of">Work out lateness as of</label><input type="date" id="as-of"></div>
+    <div class="privacy"><p><strong>Nothing leaves this page.</strong> Your file is read in your browser and isn't uploaded or saved anywhere. The sample company and its customers are made up. The page needs an invoice number, a customer and an amount, and reads due dates, payments and email addresses when the file has them.</p></div>
+  </section>
+
+  <section class="wrap step" id="step-summary" aria-labelledby="h-summary" hidden>
+    <div class="step-head"><span class="step-num" aria-hidden="true">2</span><h2 id="h-summary" tabindex="-1">What's owed</h2></div>
+    <div class="err-box" id="load-error" role="alert" hidden><p id="load-error-text"></p></div>
+    <div id="summary"></div>
+  </section>
+
+  <section class="wrap step" id="step-customers" aria-labelledby="h-customers" hidden>
+    <div class="step-head"><span class="step-num" aria-hidden="true">3</span><h2 id="h-customers">By customer</h2></div>
+    <div class="scroll age-wrap" role="region" aria-label="Amounts owed by customer" tabindex="0"><table class="age" id="age-table"></table></div>
+    <div class="actions"><button class="btn btn-quiet" id="btn-aging" type="button">Download the aging report</button></div>
+  </section>
+
+  <section class="wrap step" id="step-reminders" aria-labelledby="h-reminders" hidden>
+    <div class="step-head"><span class="step-num" aria-hidden="true">4</span><h2 id="h-reminders">Reminders to send</h2></div>
+    <p class="tone-count" id="tone-count"></p>
+    <p class="small">Every reminder asks the customer to get in touch. None of them threatens collections or legal action, and none adds interest, which is only allowed if the original invoice terms said so.</p>
+    <div class="actions"><button class="btn btn-primary" id="btn-merge" type="button">Download for a mail merge</button><button class="btn btn-quiet" id="btn-log" type="button">Download the follow-up log</button></div>
+    <p class="small muted" id="log-note" role="status"></p>
+    <ol class="rem-list" id="reminders"></ol>
+  </section>
+
+  <aside class="wrap biz" aria-labelledby="h-biz">
+    <div class="biz-box">
+      <h2 id="h-biz">What this would look like for your business</h2>
+      <p>Instead of exporting a file, a version built for you could read invoices straight from your accounting software, send reminders from your own email address on a schedule you choose, and stop as soon as a payment comes in. You'd approve the wording once, and still see every message before it goes.</p>
+      <p><a href="https://casimbahadar.github.io/contact.html">Tell me how you chase payments today</a></p>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Built by Casim Bahadar, solutions developer in Kitchener-Waterloo, Ontario.</p>
+    <p><a href="https://casimbahadar.github.io/work.html">See more work</a> or <a href="https://casimbahadar.github.io/contact.html">get in touch</a>.</p>
+  </div>
+</footer>
+<p class="sr-only" id="announce" aria-live="polite"></p>
+<script>/* CORE-START: pure functions, no page access. Tests extract this block from the shipped index.html. */
+const Aging = (() => {
+  const COMPANY = { name: "Cedar & Copper Plumbing", phone: "519-555-0190" };
+  const BANDS = [
+    { key: "not_due", label: "Not yet due" }, { key: "d1_30", label: "1 to 30 days late" }, { key: "d31_60", label: "31 to 60 days late" },
+    { key: "d61_90", label: "61 to 90 days late" }, { key: "over90", label: "Over 90 days late" }
+  ];
+  const TONES = { friendly: "Friendly reminder", firm: "Firm reminder", final: "Final reminder" };
+  const bandFor = late => late <= 0 ? "not_due" : late <= 30 ? "d1_30" : late <= 60 ? "d31_60" : late <= 90 ? "d61_90" : "over90";
+  const toneFor = late => late <= 30 ? "friendly" : late <= 60 ? "firm" : "final";
+
+  // ---- reading the file
+  function parseCSV(text) {
+    let t = String(text || "").replace(/^\uFEFF/, "");
+    const first = t.split(/\r?\n/).find(l => l.trim()) || "";
+    const counts = { ",": 0, ";": 0, "\t": 0 }; let q = false;
+    for (const ch of first) { if (ch === '"') q = !q; else if (!q && ch in counts) counts[ch]++; }
+    const d = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    const rows = []; let row = [], cell = "", inQ = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (inQ) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else inQ = false; } else cell += ch; }
+      else if (ch === '"') inQ = true;
+      else if (ch === d) { row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r") { if (ch === "\r" && t[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(c => c.trim() !== ""));
+  }
+  const fold = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const ALIASES = {
+    invoice: ["invoice number", "invoice no", "invoice", "invoice id", "inv", "inv no", "number", "no", "facture", "no de facture", "numero de facture", "n de facture"],
+    customer: ["customer", "customer name", "client", "client name", "name", "bill to", "company", "nom du client", "nom"],
+    email: ["email", "e mail", "email address", "customer email", "courriel", "adresse courriel"],
+    date: ["invoice date", "date", "issue date", "issued", "date issued", "date de facture", "date de la facture"],
+    due: ["due date", "due", "date due", "payment due", "date d echeance", "echeance"],
+    amount: ["total", "amount", "invoice total", "invoice amount", "total amount", "amount due total", "montant", "montant total", "total ttc"],
+    paid: ["paid", "amount paid", "payments", "payment", "paid to date", "paye", "montant paye"],
+    balance: ["balance", "balance due", "amount due", "outstanding", "open balance", "solde", "solde du"]
+  };
+  function mapHeaders(head) {
+    const f = head.map(fold), map = {};
+    for (const [k, names] of Object.entries(ALIASES)) {
+      for (const n of names) { const i = f.indexOf(n); if (i >= 0 && !Object.values(map).includes(i)) { map[k] = i; break; } }
+    }
+    return map;
+  }
+  const MONTHS = { jan: 1, january: 1, janvier: 1, janv: 1, feb: 2, february: 2, fevrier: 2, fevr: 2, mar: 3, march: 3, mars: 3, apr: 4, april: 4, avril: 4, avr: 4, may: 5, mai: 5,
+    jun: 6, june: 6, juin: 6, jul: 7, july: 7, juillet: 7, juil: 7, aug: 8, august: 8, aout: 8, sep: 9, sept: 9, september: 9, septembre: 9, oct: 10, october: 10, octobre: 10,
+    nov: 11, november: 11, novembre: 11, dec: 12, december: 12, decembre: 12 };
+  const iso = (y, m, d) => { const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt.toISOString().slice(0, 10) : null; };
+  // Returns { date, ambiguous }. Slash dates where both parts could be the month follow dayFirst.
+  function parseDate(s, dayFirst) {
+    const v = String(s || "").trim();
+    if (!v) return { date: null };
+    let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(v);
+    if (m) return { date: iso(+m[1], +m[2], +m[3]) };
+    m = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/.exec(v);
+    if (m) {
+      const a = +m[1], b = +m[2], y = +m[3];
+      if (a > 12) return { date: iso(y, b, a) };
+      if (b > 12) return { date: iso(y, a, b) };
+      return { date: dayFirst ? iso(y, b, a) : iso(y, a, b), ambiguous: a !== b };
+    }
+    const w = fold(v).split(" ");
+    m = w.length === 3 ? w : null;
+    if (m) {
+      if (MONTHS[m[0]] && /^\d{1,2}$/.test(m[1]) && /^\d{4}$/.test(m[2])) return { date: iso(+m[2], MONTHS[m[0]], +m[1]) };
+      if (/^\d{1,2}$/.test(m[0]) && MONTHS[m[1]] && /^\d{4}$/.test(m[2])) return { date: iso(+m[2], MONTHS[m[1]], +m[0]) };
+    }
+    if (w.length === 4 && /^1er$|^\d{1,2}$/.test(w[0]) && MONTHS[w[1]]) return { date: null };
+    return { date: null };
+  }
+  // Money as people write it: $1,234.50  1234.5  1 234,50  (12.00) for negative.
+  function parseMoney(s) {
+    let v = String(s == null ? "" : s).trim().replace(/[$\u00a0\s]|CAD|\$CA/gi, "");
+    if (!v) return null;
+    let neg = false;
+    if (/^\(.*\)$/.test(v)) { neg = true; v = v.slice(1, -1); }
+    if (v.startsWith("-")) { neg = true; v = v.slice(1); }
+    if (/^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(v) || /^\d+,\d{1,2}$/.test(v)) v = v.replace(/\./g, "").replace(",", ".");
+    else v = v.replace(/,(?=\d{3}(\D|$))/g, "");
+    if (!/^\d+(\.\d{1,2})?$/.test(v)) return null;
+    const [a, b = ""] = v.split(".");
+    const c = Number(a) * 100 + Number((b + "00").slice(0, 2));
+    return neg ? -c : c;
+  }
+  const dayNum = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+  const addDays = (s, n) => new Date((dayNum(s) + n) * 86400000).toISOString().slice(0, 10);
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const longDate = s => { const [y, m, d] = s.split("-").map(Number); return MONTH_NAMES[m - 1] + " " + d + ", " + y; };
+  const money = c => (c < 0 ? "-$" : "$") + Math.floor(Math.abs(c) / 100).toLocaleString("en-CA") + "." + String(Math.abs(c) % 100).padStart(2, "0");
+  const plain = c => (c < 0 ? "-" : "") + Math.floor(Math.abs(c) / 100) + "." + String(Math.abs(c) % 100).padStart(2, "0");
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  // ---- the whole analysis
+  function analyze(text, asOf, opts) {
+    const o = opts || {};
+    const rows = parseCSV(text);
+    if (!rows.length) return { error: "The file is empty." };
+    const map = mapHeaders(rows[0]);
+    const missing = ["invoice", "customer"].filter(k => map[k] === undefined);
+    if (map.amount === undefined && map.balance === undefined) missing.push("amount");
+    if (missing.length) return { error: "Couldn't find a column for the " + missing.map(k => ({ invoice: "invoice number", customer: "customer", amount: "invoice total" }[k])).join(", the ") + ". Check that the first row holds the column names." };
+    const notices = [];
+    if (map.due === undefined) notices.push("The file has no due date column, so each invoice is treated as due 30 days after its invoice date.");
+    if (map.paid === undefined && map.balance === undefined) notices.push("The file has no payment or balance column, so every invoice is treated as unpaid.");
+    if (map.email === undefined) notices.push("The file has no email column, so each reminder is marked to call the customer instead.");
+    const get = (r, k) => map[k] === undefined ? "" : String(r[map[k]] == null ? "" : r[map[k]]).trim();
+    let ambiguous = false;
+    const items = rows.slice(1).map((r, n) => {
+      const it = { row: n + 2, invoice: get(r, "invoice"), customer: get(r, "customer").replace(/\s+/g, " "), email: get(r, "email"), problems: [] };
+      const di = parseDate(get(r, "date"), o.dayFirst), dd = parseDate(get(r, "due"), o.dayFirst);
+      if (di.ambiguous || dd.ambiguous) ambiguous = true;
+      it.invoiceDate = di.date;
+      it.dueDate = map.due === undefined ? (di.date ? addDays(di.date, 30) : null) : dd.date;
+      if (!it.invoice) it.problems.push("no invoice number");
+      if (!it.customer) it.problems.push("no customer name");
+      if (map.due !== undefined && get(r, "due") && !dd.date) it.problems.push("the due date \u201c" + get(r, "due") + "\u201d isn't a date");
+      else if (!it.dueDate) it.problems.push("no due date");
+      if (get(r, "date") && !di.date) it.problems.push("the invoice date \u201c" + get(r, "date") + "\u201d isn't a date");
+      if (it.invoiceDate && it.dueDate && it.dueDate < it.invoiceDate) it.problems.push("the due date is before the invoice date");
+      const amt = parseMoney(get(r, "amount")), paid = parseMoney(get(r, "paid")), bal = parseMoney(get(r, "balance"));
+      if (map.amount !== undefined && amt === null) it.problems.push("the amount \u201c" + get(r, "amount") + "\u201d isn't a number");
+      if (map.paid !== undefined && get(r, "paid") && paid === null) it.problems.push("the amount paid \u201c" + get(r, "paid") + "\u201d isn't a number");
+      it.amount = amt;
+      if (map.balance !== undefined && bal !== null) it.balance = bal;
+      else it.balance = amt === null ? null : amt - (paid || 0);
+      it.paid = amt !== null && it.balance !== null ? amt - it.balance : null;
+      if (amt !== null && amt < 0) it.problems.push("the amount is negative");
+      if (it.problems.length) { it.status = "check"; return it; }
+      it.daysLate = dayNum(asOf) - dayNum(it.dueDate);
+      if (it.balance === 0) it.status = "paid";
+      else if (it.balance < 0) it.status = "credit";
+      else { it.status = "open"; it.band = bandFor(it.daysLate); }
+      it.emailOk = EMAIL.test(it.email);
+      return it;
+    });
+    const open = items.filter(i => i.status === "open");
+    const bands = Object.fromEntries(BANDS.map(b => [b.key, 0])), counts = Object.fromEntries(BANDS.map(b => [b.key, 0]));
+    for (const i of open) { bands[i.band] += i.balance; counts[i.band]++; }
+    const total = open.reduce((s, i) => s + i.balance, 0), overdue = total - bands.not_due;
+    // Customers, grouped by name.
+    const key = s => s.normalize("NFC").toLowerCase();
+    const byCust = new Map();
+    for (const i of open) {
+      const k = key(i.customer);
+      if (!byCust.has(k)) byCust.set(k, { customer: i.customer, invoices: [], bands: Object.fromEntries(BANDS.map(b => [b.key, 0])), total: 0, email: "" });
+      const c = byCust.get(k); c.invoices.push(i); c.bands[i.band] += i.balance; c.total += i.balance;
+      if (!c.email && i.emailOk) c.email = i.email;
+    }
+    const customers = [...byCust.values()].sort((a, b) => (b.total - b.bands.not_due) - (a.total - a.bands.not_due) || b.total - a.total || a.customer.localeCompare(b.customer));
+    // One reminder per customer, listing every overdue invoice, oldest first. The oldest sets the tone.
+    const reminders = customers.map(c => {
+      const late = c.invoices.filter(i => i.daysLate > 0).sort((a, b) => b.daysLate - a.daysLate || a.invoice.localeCompare(b.invoice));
+      if (!late.length) return null;
+      const tone = toneFor(late[0].daysLate), sum = late.reduce((s, i) => s + i.balance, 0);
+      return Object.assign({ customer: c.customer, email: c.email, invoices: late, tone, total: sum, oldest: late[0].daysLate }, draft(c.customer, late, tone, sum, asOf));
+    }).filter(Boolean).sort((a, b) => b.oldest - a.oldest || b.total - a.total);
+    return { items, open, bands, counts, total, overdue, customers, reminders, notices, ambiguous,
+      paid: items.filter(i => i.status === "paid"), credits: items.filter(i => i.status === "credit"), check: items.filter(i => i.status === "check"), asOf };
+  }
+
+  // ---- the reminder wording. It never threatens collections or legal action, and never adds interest.
+  function draft(customer, late, tone, sum, asOf) {
+    const many = late.length > 1, by = longDate(addDays(asOf, 7));
+    const list = late.map(i => "- " + i.invoice + ", due " + longDate(i.dueDate) + " (" + i.daysLate + (i.daysLate === 1 ? " day" : " days") + " late), balance " + money(i.balance)).join("\n");
+    const what = many ? late.length + " invoices" : "invoice " + late[0].invoice;
+    const subject = tone === "friendly" ? "Friendly reminder: " + what + (many ? " are" : " is") + " past due"
+      : tone === "firm" ? "Second reminder: " + what + (many ? " are" : " is") + " past due"
+      : "Final reminder: " + what + " from " + COMPANY.name;
+    const intro = tone === "friendly" ? "This is a friendly reminder that " + (many ? "these invoices are" : "this invoice is") + " past due:"
+      : tone === "firm" ? "Our records show " + (many ? "these invoices are" : "this invoice is") + " now more than 30 days past due:"
+      : "This is our final reminder about " + (many ? "these invoices, which are" : "this invoice, which is") + " now more than 60 days past due:";
+    const ask = tone === "friendly" ? "If you've already sent payment, thank you, and please ignore this note. If you have any questions about the invoice, just reply to this email."
+      : tone === "firm" ? "Please arrange payment by " + by + ", or reply to let us know when we can expect it. If you've already paid, please send us the payment details so we can match it."
+      : "Please contact us by " + by + " to arrange payment. If there's a problem with the invoice or the work, tell us and we'll sort it out with you.";
+    const body = "Hello " + customer + ",\n\n" + intro + "\n\n" + list + "\n\nTotal past due: " + money(sum) + "\n\n" + ask + "\n\nThank you,\n" + COMPANY.name + "\n" + COMPANY.phone;
+    return { subject, body };
+  }
+
+  // ---- spreadsheet outputs. Cells that start with = + - @ or a control character get an apostrophe.
+  const cell = v => { let s = String(v == null ? "" : v); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const toCSV = (head, rows) => [head, ...rows].map(r => r.map(cell).join(",")).join("\r\n") + "\r\n";
+  const AGING_HEAD = ["Customer", ...BANDS.map(b => b.label), "Total owed"];
+  const agingRows = a => [...a.customers.map(c => [c.customer, ...BANDS.map(b => plain(c.bands[b.key])), plain(c.total)]), ["All customers", ...BANDS.map(b => plain(a.bands[b.key])), plain(a.total)]];
+  const MERGE_HEAD = ["To", "Customer", "Subject", "Message", "Tone", "Total past due"];
+  const mergeRows = a => a.reminders.filter(r => r.email).map(r => [r.email, r.customer, r.subject, r.body, TONES[r.tone], plain(r.total)]);
+  const LOG_HEAD = ["Customer", "Sent on", "Tone", "Invoices", "Total past due"];
+  const logRow = (r, on) => [r.customer, on, TONES[r.tone], r.invoices.map(i => i.invoice).join(" "), plain(r.total)];
+
+  // ---- the sample: 25 invoices for 21 made-up customers, dated relative to the as-of date
+  function sampleCSV(asOf) {
+    const due = n => addDays(asOf, -n), inv = n => addDays(asOf, -n - 30);
+    const R = [
+      ["INV-2101", "Raman Dental", "accounts@ramandental.example", 12, "450.00", ""], ["INV-2102", "Raman Dental", "accounts@ramandental.example", 45, "1,130.00", ""],
+      ["INV-2103", "Raman Dental", "accounts@ramandental.example", 75, "860.50", ""], ["INV-2104", "Liu Bakery", "hello@liubakery.example", 30, "320.00", ""],
+      ["INV-2105", "Weber Street Cafe", "owner@weberstreetcafe.example", 31, "615.25", ""], ["INV-2106", "Haddad Properties", "omar@haddadproperties.example", 0, "2,400.00", ""],
+      ["INV-2107", "Haddad Properties", "omar@haddadproperties.example", -10, "1,250.00", ""], ["INV-2108", "Fischer Auto", "lena@fischerauto.example", 20, "980.00", "500.00"],
+      ["INV-2109", "Nguyen Family", "tom.nguyen@example.com", 40, "275.00", "275.00"], ["INV-2110", "Adeyemi Law", "billing@adeyemilaw.example", 15, "1,500.00", "1,550.00"],
+      ["INV-2111", "Morales Landscaping", "diego@moraleslandscaping.example", "swap", "700.00", ""], ["INV-2112", "Gagn\u00e9 Bistro", "", 52, "890.00", ""],
+      ["INV-2113", "Carvalho Fitness", "ines@carvalhofitness.example", 95, "2,150.00", ""], ["INV-2114", "Kowal Hardware", "adam@kowalhardware.example", 5, "145.80", ""],
+      ["INV-2115", "Kowal Hardware", "adam@kowalhardware.example", -20, "300.00", ""], ["INV-2116", "Clarke Renovations", "owen@clarkereno.example", 62, "3,275.00", "1,000.00"],
+      ["INV-2117", "Bauer Dentistry", "office@bauerdentistry.example", 60, "540.00", ""], ["INV-2118", "Walsh Consulting", "fiona@walshconsulting.example", 61, "410.00", ""],
+      ["INV-2119", "Ortiz Electric", "ap@ortizelectric.example", 90, "1,020.00", ""], ["INV-2120", "Patel Pharmacy", "rx@patelpharmacy.example", 25, "TBD", ""],
+      ["INV-2121", "Brooks Salon", "jordan@brookssalon.example", 8, "225.00", ""], ["INV-2122", "Sandhu Logistics", "ar@sandhulogistics.example", -5, "1,780.00", ""],
+      ["INV-2123", "Okafor Daycare", "director@okafordaycare.example", 33, "395.00", ""], ["INV-2124", "Lee Optometry", "frontdesk@leeoptometry.example", 70, "1,340.00", ""],
+      ["INV-2125", "Thompson Motors", "service@thompsonmotors.example", -15, "860.00", ""]
+    ];
+    const head = ["Invoice number", "Customer", "Email", "Invoice date", "Due date", "Amount", "Paid"];
+    const rows = R.map(([n, c, e, late, amt, paid]) => late === "swap" ? [n, c, e, addDays(asOf, -14), addDays(asOf, -44), amt, paid] : [n, c, e, inv(late), due(late), amt, paid]);
+    return toCSV(head, rows);
+  }
+
+  return { COMPANY, BANDS, TONES, bandFor, toneFor, parseCSV, mapHeaders, parseDate, parseMoney, addDays, longDate, money, plain, analyze, toCSV, AGING_HEAD, agingRows, MERGE_HEAD, mergeRows, LOG_HEAD, logRow, sampleCSV };
+})();
+/* CORE-END */
+
+(() => {
+  const $ = id => document.getElementById(id);
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "text") el.textContent = v; else if (k === "class") el.className = v; else el.setAttribute(k, v === true ? "" : String(v));
+    }
+    for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(typeof kid === "string" ? document.createTextNode(kid) : kid);
+    return el;
+  }
+  const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+  const announce = t => { $("announce").textContent = ""; setTimeout(() => { $("announce").textContent = t; }, 30); };
+  $("as-of").value = today();
+  let text = null, source = "", dayFirst = false, result = null;
+  const sent = new Map();
+
+  function load(t, src) {
+    text = t; source = src; dayFirst = false; sent.clear(); $("log-note").textContent = "";
+    run(true);
+  }
+  function run(scroll) {
+    const asOf = /^\d{4}-\d{2}-\d{2}$/.test($("as-of").value) ? $("as-of").value : today();
+    const a = Aging.analyze(text, asOf, { dayFirst });
+    $("step-summary").hidden = false;
+    if (a.error) {
+      result = null;
+      $("load-error-text").textContent = a.error; $("load-error").hidden = false;
+      $("summary").replaceChildren(); $("step-customers").hidden = true; $("step-reminders").hidden = true;
+    } else {
+      result = a; $("load-error").hidden = true;
+      renderSummary(a); renderTable(a); renderReminders(a);
+      $("step-customers").hidden = false; $("step-reminders").hidden = !a.reminders.length;
+      fitMessages();
+    }
+    if (scroll) { $("h-summary").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); $("h-summary").focus({ preventScroll: true }); }
+  }
+
+  // ---- summary
+  function renderSummary(a) {
+    const parts = [];
+    const notes = a.notices.map(n => h("p", { text: n }));
+    if (a.ambiguous) {
+      const sel = h("select", { id: "day-first" }, h("option", { value: "month", text: "the month comes first (03/04 is March 4)" }), h("option", { value: "day", text: "the day comes first (03/04 is April 3)" }));
+      sel.value = dayFirst ? "day" : "month";
+      notes.push(h("p", {}, h("label", { for: "day-first", text: "Some dates, like 03/04/2026, could be read two ways. In this file " }), sel));
+    }
+    if (notes.length) parts.push(h("div", { class: "notices", role: "status" }, ...notes));
+    parts.push(h("p", { class: "small muted", text: source + ". Lateness worked out as of " + Aging.longDate(a.asOf) + "." }));
+    parts.push(h("div", { class: "totals-row" },
+      h("div", { class: "big" }, h("span", { text: "Total owed" }), h("strong", { text: Aging.money(a.total) })),
+      h("div", { class: "big" + (a.overdue > 0 ? " is-overdue" : "") }, h("span", { text: "Overdue" }), h("strong", { text: Aging.money(a.overdue) }))));
+    const max = Math.max(1, ...Aging.BANDS.map(b => a.bands[b.key]));
+    parts.push(h("ul", { class: "bands", "aria-label": "Amounts owed, by how late they are" }, ...Aging.BANDS.map(b => h("li", {},
+      h("span", { class: "name", text: b.label }), h("span", { class: "amt", text: Aging.money(a.bands[b.key]) }),
+      h("span", { class: "bar b-" + b.key, "aria-hidden": "true" }, h("i", { style: "width:" + (a.bands[b.key] / max * 100).toFixed(1) + "%" })),
+      h("span", { class: "count", text: a.counts[b.key] + (a.counts[b.key] === 1 ? " invoice" : " invoices") })))));
+    if (a.check.length) parts.push(h("div", { class: "checkbox" }, h("h3", { text: a.check.length === 1 ? "1 invoice needs checking" : a.check.length + " invoices need checking" }),
+      h("ul", {}, ...a.check.map(i => h("li", { text: (i.invoice || "Row " + i.row) + (i.customer ? " (" + i.customer + ")" : "") + ": " + i.problems.join("; ") + ". It's left out until it's fixed." })))));
+    const side = [];
+    if (a.credits.length) side.push(h("p", { text: "Customers you owe money to: " + a.credits.map(i => i.customer + " paid " + Aging.money(-i.balance) + " more than invoice " + i.invoice).join("; ") + ". They're left out of the reminders." }));
+    if (a.paid.length) side.push(h("p", { text: (a.paid.length === 1 ? "1 invoice is" : a.paid.length + " invoices are") + " paid in full and left out: " + a.paid.map(i => i.invoice).join(", ") + "." }));
+    if (side.length) parts.push(h("div", { class: "side-note" }, ...side));
+    $("summary").replaceChildren(...parts);
+  }
+
+  // ---- table by customer
+  function renderTable(a) {
+    const cols = Aging.BANDS;
+    $("age-table").replaceChildren(
+      h("caption", { class: "sr-only", text: "Amount each customer owes, by how late it is" }),
+      h("thead", {}, h("tr", {}, h("th", { scope: "col", text: "Customer" }), ...cols.map(b => h("th", { scope: "col", text: b.label })), h("th", { scope: "col", text: "Total owed" }))),
+      h("tbody", {}, ...a.customers.map(c => h("tr", {}, h("th", { scope: "row", text: c.customer }),
+        ...cols.map(b => h("td", { class: c.bands[b.key] && b.key !== "not_due" ? "late" : null, "data-label": b.label, text: c.bands[b.key] ? Aging.money(c.bands[b.key]) : "" })),
+        h("td", { class: "tot", "data-label": "Total owed", text: Aging.money(c.total) })))),
+      h("tfoot", {}, h("tr", {}, h("td", { text: "All customers" }), ...cols.map(b => h("td", { "data-label": b.label, text: Aging.money(a.bands[b.key]) })), h("td", { class: "tot", "data-label": "Total owed", text: Aging.money(a.total) }))));
+  }
+
+  // ---- reminders
+  function renderReminders(a) {
+    const n = t => a.reminders.filter(r => r.tone === t).length;
+    $("tone-count").textContent = a.reminders.length + (a.reminders.length === 1 ? " customer has" : " customers have") + " overdue invoices: " + n("friendly") + " friendly, " + n("firm") + " firm and " + n("final") + " final reminders. Each customer gets one message listing all their overdue invoices, and the oldest one sets the tone.";
+    $("reminders").replaceChildren(...a.reminders.map((r, k) => {
+      const id = "msg-" + k;
+      const ta = h("textarea", { id, readonly: true, "aria-label": "Reminder message to " + r.customer });
+      ta.value = r.body;
+      const done = sent.get(r.customer);
+      return h("li", { class: "rem" + (r.tone === "final" ? " is-final" : "") },
+        h("h3", {}, r.customer, h("span", { class: "tone tone-" + r.tone, text: Aging.TONES[r.tone] })),
+        h("p", { class: "meta" }, Aging.money(r.total) + " past due on " + (r.invoices.length === 1 ? "1 invoice" : r.invoices.length + " invoices") + ", the oldest " + r.oldest + " days late. ",
+          r.email ? h("span", { text: "To: " + r.email }) : h("span", { class: "call", text: "No email address on file, so call instead." })),
+        h("p", { class: "subj", text: "Subject: " + r.subject }),
+        ta,
+        h("div", { class: "actions" },
+          h("button", { class: "btn btn-quiet", type: "button", "data-copy": String(k), text: "Copy message" }),
+          h("button", { class: "btn btn-quiet", type: "button", "data-sent": String(k), "aria-pressed": done ? "true" : "false", text: done ? "Undo marked as sent" : "Mark as sent" })),
+        h("p", { class: "sent small", role: "status", id: "sent-" + k, text: done ? "Marked as sent on " + Aging.longDate(done) + "." : "" }));
+    }));
+  }
+  // Sized after the section is visible, so every message shows in full without its own scroll bar.
+  function fitMessages() {
+    const y = window.scrollY;
+    document.querySelectorAll("#reminders textarea").forEach(t => { t.style.height = "auto"; t.style.height = (t.scrollHeight + 4) + "px"; });
+    if (window.scrollY !== y) window.scrollTo(0, y);
+  }
+  $("reminders").addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b || !result) return;
+    if (b.dataset.copy !== undefined) {
+      const k = Number(b.dataset.copy), r = result.reminders[k], t = "Subject: " + r.subject + "\n\n" + r.body;
+      try { await Promise.race([navigator.clipboard.writeText(t), new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 1500))]); $("sent-" + k).textContent = "Copied."; }
+      catch (err) { $("msg-" + k).focus(); $("msg-" + k).select(); $("sent-" + k).textContent = "Copying isn't allowed here. The message is selected, so you can copy it yourself."; }
+    } else if (b.dataset.sent !== undefined) {
+      const k = Number(b.dataset.sent), r = result.reminders[k];
+      if (sent.has(r.customer)) { sent.delete(r.customer); b.textContent = "Mark as sent"; b.setAttribute("aria-pressed", "false"); $("sent-" + k).textContent = "No longer marked as sent."; }
+      else { sent.set(r.customer, today()); b.textContent = "Undo marked as sent"; b.setAttribute("aria-pressed", "true"); $("sent-" + k).textContent = "Marked as sent on " + Aging.longDate(today()) + "."; }
+    }
+  });
+
+  // ---- downloads
+  function download(name, csv) {
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  $("btn-aging").addEventListener("click", () => { if (result) download("aging-report-" + result.asOf + ".csv", Aging.toCSV(Aging.AGING_HEAD, Aging.agingRows(result))); });
+  $("btn-merge").addEventListener("click", () => {
+    if (!result) return;
+    const rows = Aging.mergeRows(result);
+    download("reminders-" + result.asOf + ".csv", Aging.toCSV(Aging.MERGE_HEAD, rows));
+    const skipped = result.reminders.length - rows.length;
+    $("log-note").textContent = rows.length + " reminders downloaded." + (skipped ? " " + skipped + (skipped === 1 ? " customer has" : " customers have") + " no email address and " + (skipped === 1 ? "isn't" : "aren't") + " in the file. Call them instead." : "");
+  });
+  $("btn-log").addEventListener("click", () => {
+    if (!result) return;
+    const rows = result.reminders.filter(r => sent.has(r.customer)).map(r => Aging.logRow(r, sent.get(r.customer)));
+    if (!rows.length) { $("log-note").textContent = "Nothing is marked as sent yet. Use Mark as sent on each reminder you send, then download the log."; return; }
+    download("follow-up-log-" + result.asOf + ".csv", Aging.toCSV(Aging.LOG_HEAD, rows));
+    $("log-note").textContent = "Follow-up log downloaded with " + rows.length + (rows.length === 1 ? " reminder." : " reminders.");
+  });
+
+  // ---- loading
+  $("btn-sample").addEventListener("click", () => load(Aging.sampleCSV(/^\d{4}-\d{2}-\d{2}$/.test($("as-of").value) ? $("as-of").value : today()), "The sample invoices, dated relative to the as-of date"));
+  $("file").addEventListener("change", () => {
+    const f = $("file").files[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { load("", f.name); $("load-error-text").textContent = "That file is over 5 MB. Export only the open invoices and try again."; return; }
+    f.arrayBuffer().then(buf => {
+      let t = new TextDecoder("utf-8").decode(buf);
+      if (t.includes("\uFFFD")) t = new TextDecoder("windows-1252").decode(buf);
+      load(t, "From " + f.name);
+      $("file").value = "";
+    });
+  });
+  $("btn-paste").addEventListener("click", () => {
+    const t = $("paste-text").value;
+    if (!t.trim()) { $("paste-text").focus(); announce("Paste a spreadsheet first."); return; }
+    load(t, "From the pasted spreadsheet");
+  });
+  $("as-of").addEventListener("change", () => { if (text !== null) run(false); });
+  $("summary").addEventListener("change", e => { if (e.target.id === "day-first") { dayFirst = e.target.value === "day"; run(false); $("day-first").focus(); } });
+})();
+</script>
+</body>
+</html>

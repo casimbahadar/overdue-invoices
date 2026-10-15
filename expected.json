@@ -1,0 +1,16 @@
+{
+ "as_of": "2026-10-15",
+ "note": "Worked out by hand before the page was built. Days late = as-of date minus due date.",
+ "bands_cents": { "not_due": 659000, "d1_30": 162080, "d31_60": 357025, "d61_90": 590550, "over90": 215000 },
+ "band_counts": { "not_due": 5, "d1_30": 5, "d31_60": 5, "d61_90": 5, "over90": 1 },
+ "total_owed_cents": 1983655, "overdue_cents": 1324655,
+ "excluded": { "paid_in_full": ["INV-2109"], "credit": [["INV-2110", 5000]], "needs_checking": ["INV-2111", "INV-2120"] },
+ "boundaries": { "INV-2104": [30, "d1_30"], "INV-2105": [31, "d31_60"], "INV-2117": [60, "d31_60"], "INV-2118": [61, "d61_90"], "INV-2119": [90, "d61_90"], "INV-2113": [95, "over90"], "INV-2106": [0, "not_due"] },
+ "reminders": {
+  "friendly": [["Liu Bakery", 32000], ["Fischer Auto", 48000], ["Kowal Hardware", 14580], ["Brooks Salon", 22500]],
+  "firm": [["Weber Street Cafe", 61525], ["Gagne Bistro", 89000], ["Bauer Dentistry", 54000], ["Okafor Daycare", 39500]],
+  "final": [["Raman Dental", 244050], ["Carvalho Fitness", 215000], ["Clarke Renovations", 227500], ["Walsh Consulting", 41000], ["Ortiz Electric", 102000], ["Lee Optometry", 134000]]
+ },
+ "reminder_count": 14, "mail_merge_rows": 13, "call_instead": ["Gagne Bistro"],
+ "raman_dental_invoices": ["INV-2103", "INV-2102", "INV-2101"]
+}
